@@ -1,0 +1,42 @@
+import arcpy
+import os
+
+input_shapefile = r"F:\Test\Road_Centerline_109B.shp"
+output_folder = r"F:\Test"
+base_output_name = "Buffered_Road_Centerline"
+buffer_field = "half_width"
+
+mxd = arcpy.mapping.MapDocument("CURRENT")
+df = arcpy.mapping.ListDataFrames(mxd)[0]
+
+layers_to_remove = [lyr for lyr in arcpy.mapping.ListLayers(mxd, "", df) if lyr.name.startswith(base_output_name)]
+for lyr in layers_to_remove:
+    arcpy.mapping.RemoveLayer(df, lyr)
+    print "Old buffer shapefile '{0}' removed from ArcMap.".format(lyr.name)
+
+def get_new_output_name(base_name, folder):
+    i = 1
+    while True:
+        new_name = "{0}_{1}.shp".format(base_name, i)
+        full_path = os.path.join(folder, new_name)
+        if not arcpy.Exists(full_path):
+            return full_path
+        i += 1
+
+output_shapefile = get_new_output_name(base_output_name, output_folder)
+
+arcpy.Buffer_analysis(in_features=input_shapefile,
+                      out_feature_class=output_shapefile,
+                      buffer_distance_or_field=buffer_field,
+                      line_side="FULL",
+                      line_end_type="ROUND",
+                      dissolve_option="NONE")
+
+layers_to_remove_post_buffer = [lyr for lyr in arcpy.mapping.ListLayers(mxd, "", df) if lyr.name.startswith(base_output_name)]
+for lyr in layers_to_remove_post_buffer:
+    arcpy.mapping.RemoveLayer(df, lyr)
+
+new_layer = arcpy.mapping.Layer(output_shapefile)
+arcpy.mapping.AddLayer(df, new_layer, "TOP")
+
+print "New buffer shapefile '{0}' created and added to ArcMap.".format(output_shapefile)
