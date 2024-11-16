@@ -1,0 +1,57 @@
+import arcpy
+import os
+
+# Set workspace to your shapefile location
+arcpy.env.workspace = r"C:\Users\User\Downloads\SHP"
+
+# Input shapefile
+input_shapefile = "BLD_DNCC_1.shp"
+
+# Create output folder if it doesn't exist
+output_folder = r"C:\Users\User\Downloads\SHP\output"
+if not os.path.exists(output_folder):
+    os.makedirs(output_folder)
+
+# Get unique values from the 'gfr' field, including blanks
+unique_values = []
+with arcpy.da.SearchCursor(input_shapefile, ["gfr"]) as cursor:
+    for row in cursor:
+        if row[0] not in unique_values:
+            unique_values.append(row[0])
+
+# Loop through unique values and export features
+for value in unique_values:
+    # Handle blank values explicitly
+    if value is None or value == "":
+        query = "\"gfr\" IS NULL OR \"gfr\" = ''"
+        output_name = "BLD_DNCC_1_blank.shp"
+        layer_name = "Layer_blank"
+    else:
+        query = "\"gfr\" = '{}'".format(value)
+        output_name = "BLD_DNCC_1_{}.shp".format(value)
+        layer_name = "Layer_{}".format(value)
+    
+    # Define the output shapefile name based on the current value
+    output_shapefile = os.path.join(output_folder, output_name)
+    
+    # Delete the output shapefile if it already exists
+    if arcpy.Exists(output_shapefile):
+        arcpy.Delete_management(output_shapefile)
+    
+    # Use the FeatureClassToFeatureClass tool to export the selected features
+    arcpy.FeatureClassToFeatureClass_conversion(
+        in_features=input_shapefile,
+        out_path=output_folder,  # Output folder path
+        out_name=output_name,
+        where_clause=query
+    )
+    
+    # Check if the layer already exists and delete if it does
+    if arcpy.Exists(layer_name):
+        arcpy.Delete_management(layer_name)
+    
+    # Add the newly created shapefile to ArcMap
+    arcpy.MakeFeatureLayer_management(output_shapefile, layer_name)
+    mxd = arcpy.mapping.MapDocument("CURRENT")
+    df = arcpy.mapping.ListDataFrames(mxd)[0]
+    arcpy.mapping.AddLayer(df, arcpy.mapping.Layer(output_shapefile), "TOP")
